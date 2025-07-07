@@ -1,0 +1,8 @@
+pytz
+instagrapi>=2.0.0
+python-telegram-bot>=20.0
+python-dotenv>=1.0.0
+asyncio
+aiofiles>=23.0.0
+cryptography>=41.0.0
+apscheduler
