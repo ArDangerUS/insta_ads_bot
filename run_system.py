@@ -149,7 +149,9 @@ def run_system():
     try:
         # Импортируем и запускаем основной модуль
         from instagram_bot_backend import app, socketio
-        socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
+        port = int(os.environ.get("PORT", 5000))
+        socketio.run(app, host="0.0.0.0", port=port, debug=False, allow_unsafe_werkzeug=True)
+
 
     except ImportError as e:
         print(f"❌ Ошибка импорта: {e}")
