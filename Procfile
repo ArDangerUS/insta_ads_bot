@@ -1,1 +1,1 @@
-web: python instagram_bot_backend.py
+web: python run_system.py
