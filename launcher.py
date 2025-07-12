@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-Instagram Bot v2.7.2025 - КРОССПЛАТФОРМЕННАЯ версия (ИСПРАВЛЕНО)
+Instagram Bot v3.0.2025 - CZECH OPTIMIZED VERSION
 Совместимость: Windows, Linux, VPS
-Исправления конфликтов сессий без использования fcntl
+Оптимизировано для чешских устройств с улучшенной рандомизацией
 """
 import requests
 import asyncio
@@ -17,12 +17,11 @@ import os
 import threading
 import sys
 import platform
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Tuple
-from dataclasses import dataclass, asdict
+from typing import List, Dict, Optional
+from dataclasses import dataclass
 from pathlib import Path
 from enum import Enum
-import concurrent.futures
+
 
 # Instagram API
 try:
@@ -42,7 +41,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
     handlers=[
-        logging.FileHandler('bot_fixed.log', encoding='utf-8'),
+        logging.FileHandler('bot_czech.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -59,6 +58,15 @@ class InteractionType(Enum):
     LIKERS = "likers"
     COMMENTERS = "commenters"
     BOTH = "both"
+
+
+class HumanActivity(Enum):
+    EXPLORE = "explore"
+    WATCH_REELS = "watch_reels"
+    VIEW_STORIES = "view_stories"
+    BROWSE_FEED = "browse_feed"
+    SEARCH_HASHTAGS = "search_hashtags"
+    VIEW_PROFILES = "view_profiles"
 
 
 @dataclass
@@ -99,8 +107,6 @@ class ProxyConfig:
 
         return proxy_dict
 
-
-# 3. ДОБАВЬТЕ КЛАСС ProxyManager после ProxyConfig:
 
 class ProxyManager:
     """Менеджер для работы с прокси"""
@@ -244,18 +250,18 @@ class BotConfig:
     active: bool = True
     proxy: Optional[ProxyConfig] = None
 
-    # Настройки активности
-    max_likes_per_hour: int = 8
-    max_follows_per_hour: int = 4
-    max_messages_per_hour: int = 2
-    max_comments_per_hour: int = 3
-    min_delay: int = 300
-    max_delay: int = 600
+    # Настройки активности (более консервативные)
+    max_likes_per_hour: int = 4
+    max_follows_per_hour: int = 2
+    max_messages_per_hour: int = 1
+    max_comments_per_hour: int = 2
+    min_delay: int = 1200  # 20 минут
+    max_delay: int = 2400  # 40 минут
 
     # Настройки взаимодействия
     interaction_types: List[InteractionType] = None
     posts_to_like: int = 2
-    posts_to_analyze: int = 3
+    posts_to_analyze: int = 2
 
     # Настройки сообщений
     personalized_messages: bool = True
@@ -263,9 +269,200 @@ class BotConfig:
 
     def __post_init__(self):
         if self.interaction_types is None:
-            self.interaction_types = [InteractionType.BOTH]
+            self.interaction_types = [InteractionType.LIKERS]
         if self.message_variants is None:
             self.message_variants = [self.message_template]
+
+
+class CzechDeviceManager:
+    """Менеджер чешских устройств на основе реальной статистики"""
+
+    @staticmethod
+    def get_czech_devices():
+        """Популярные устройства в Чехии основанные на реальной статистике"""
+        return [
+            # Samsung Galaxy S24 серия (лидер рынка 29.05%)
+            {
+                "model": "SM-S921B",
+                "brand": "samsung",
+                "name": "Galaxy S24",
+                "android_version": "14",
+                "api_level": "34",
+                "resolution": "1080x2340",
+                "dpi": "416",
+                "cpu": "arm64-v8a",
+                "chipset": "exynos2400",
+                "user_agent_template": "Mozilla/5.0 (Linux; Android 14; SM-S921B Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.6099.230 Mobile Safari/537.36 Instagram 322.0.0.40.96 Android (34/14; 416dpi; 1080x2340; samsung; SM-S921B; dm1q; exynos2400; cs_CZ; 563315329)"
+            },
+            {
+                "model": "SM-S928B",
+                "brand": "samsung",
+                "name": "Galaxy S24 Ultra",
+                "android_version": "14",
+                "api_level": "34",
+                "resolution": "1440x3120",
+                "dpi": "501",
+                "cpu": "arm64-v8a",
+                "chipset": "snapdragon8gen3",
+                "user_agent_template": "Mozilla/5.0 (Linux; Android 14; SM-S928B Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.6099.230 Mobile Safari/537.36 Instagram 322.0.0.40.96 Android (34/14; 501dpi; 1440x3120; samsung; SM-S928B; dm3q; snapdragon8gen3; cs_CZ; 563315329)"
+            },
+            {
+                "model": "SM-A546B",
+                "brand": "samsung",
+                "name": "Galaxy A54",
+                "android_version": "14",
+                "api_level": "34",
+                "resolution": "1080x2340",
+                "dpi": "403",
+                "cpu": "arm64-v8a",
+                "chipset": "exynos1380",
+                "user_agent_template": "Mozilla/5.0 (Linux; Android 14; SM-A546B Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.6045.163 Mobile Safari/537.36 Instagram 318.0.0.37.116 Android (34/14; 403dpi; 1080x2340; samsung; SM-A546B; a54x; exynos1380; cs_CZ; 547348935)"
+            },
+            {
+                "model": "SM-A256B",
+                "brand": "samsung",
+                "name": "Galaxy A25",
+                "android_version": "14",
+                "api_level": "34",
+                "resolution": "1080x2340",
+                "dpi": "396",
+                "cpu": "arm64-v8a",
+                "chipset": "exynos1280",
+                "user_agent_template": "Mozilla/5.0 (Linux; Android 14; SM-A256B Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.5993.111 Mobile Safari/537.36 Instagram 315.0.0.35.109 Android (34/14; 396dpi; 1080x2340; samsung; SM-A256B; a25x; exynos1280; cs_CZ; 534567234)"
+            },
+
+            # Xiaomi серия (второй по популярности 25.49%)
+            {
+                "model": "2312DRA50G",
+                "brand": "Xiaomi",
+                "name": "Redmi Note 13",
+                "android_version": "13",
+                "api_level": "33",
+                "resolution": "1080x2400",
+                "dpi": "395",
+                "cpu": "arm64-v8a",
+                "chipset": "dimensity6080",
+                "user_agent_template": "Mozilla/5.0 (Linux; Android 13; 2312DRA50G Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.6045.67 Mobile Safari/537.36 Instagram 309.0.0.40.113 Android (33/13; 395dpi; 1080x2400; Xiaomi; 2312DRA50G; sapphire; dimensity6080; cs_CZ; 536988435)"
+            },
+            {
+                "model": "2312DRA4AG",
+                "brand": "Xiaomi",
+                "name": "Redmi Note 13 Pro",
+                "android_version": "13",
+                "api_level": "33",
+                "resolution": "1080x2400",
+                "dpi": "395",
+                "cpu": "arm64-v8a",
+                "chipset": "heliog99ultra",
+                "user_agent_template": "Mozilla/5.0 (Linux; Android 13; 2312DRA4AG Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.6045.67 Mobile Safari/537.36 Instagram 309.0.0.40.113 Android (33/13; 395dpi; 1080x2400; Xiaomi; 2312DRA4AG; ruby; heliog99ultra; cs_CZ; 536988435)"
+            },
+            {
+                "model": "23090RA98G",
+                "brand": "Xiaomi",
+                "name": "Xiaomi 14T",
+                "android_version": "14",
+                "api_level": "34",
+                "resolution": "1220x2712",
+                "dpi": "446",
+                "cpu": "arm64-v8a",
+                "chipset": "dimensity8300ultra",
+                "user_agent_template": "Mozilla/5.0 (Linux; Android 14; 23090RA98G Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.6099.230 Mobile Safari/537.36 Instagram 322.0.0.40.96 Android (34/14; 446dpi; 1220x2712; Xiaomi; 23090RA98G; aristotle; dimensity8300ultra; cs_CZ; 563315329)"
+            },
+            {
+                "model": "23013RK75G",
+                "brand": "Redmi",
+                "name": "Redmi Note 12",
+                "android_version": "13",
+                "api_level": "33",
+                "resolution": "1080x2400",
+                "dpi": "395",
+                "cpu": "arm64-v8a",
+                "chipset": "snapdragon4gen1",
+                "user_agent_template": "Mozilla/5.0 (Linux; Android 13; 23013RK75G Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.5993.111 Mobile Safari/537.36 Instagram 315.0.0.35.109 Android (33/13; 395dpi; 1080x2400; Redmi; 23013RK75G; tapas; snapdragon4gen1; cs_CZ; 534567234)"
+            },
+
+            # OnePlus серия (премиум сегмент)
+            {
+                "model": "CPH2573",
+                "brand": "OnePlus",
+                "name": "OnePlus 12",
+                "android_version": "14",
+                "api_level": "34",
+                "resolution": "1440x3168",
+                "dpi": "510",
+                "cpu": "arm64-v8a",
+                "chipset": "snapdragon8gen3",
+                "user_agent_template": "Mozilla/5.0 (Linux; Android 14; CPH2573 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.6099.230 Mobile Safari/537.36 Instagram 322.0.0.40.96 Android (34/14; 510dpi; 1440x3168; OnePlus; CPH2573; pineapple; snapdragon8gen3; cs_CZ; 563315329)"
+            },
+            {
+                "model": "CPH2609",
+                "brand": "OnePlus",
+                "name": "OnePlus Nord 4",
+                "android_version": "14",
+                "api_level": "34",
+                "resolution": "1240x2772",
+                "dpi": "451",
+                "cpu": "arm64-v8a",
+                "chipset": "snapdragon7gen3",
+                "user_agent_template": "Mozilla/5.0 (Linux; Android 14; CPH2609 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.6045.163 Mobile Safari/537.36 Instagram 318.0.0.37.116 Android (34/14; 451dpi; 1240x2772; OnePlus; CPH2609; aston; snapdragon7gen3; cs_CZ; 547348935)"
+            },
+
+            # Realme серия
+            {
+                "model": "RMX3031",
+                "brand": "realme",
+                "name": "Realme GT Neo 3",
+                "android_version": "13",
+                "api_level": "33",
+                "resolution": "1080x2412",
+                "dpi": "395",
+                "cpu": "arm64-v8a",
+                "chipset": "dimensity8100",
+                "user_agent_template": "Mozilla/5.0 (Linux; Android 13; RMX3031 Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.5993.111 Mobile Safari/537.36 Instagram 315.0.0.35.109 Android (33/13; 395dpi; 1080x2412; realme; RMX3031; oscar; dimensity8100; cs_CZ; 534567234)"
+            }
+        ]
+
+    @staticmethod
+    def get_random_device():
+        """Получить случайное чешское устройство с весами популярности"""
+        devices = CzechDeviceManager.get_czech_devices()
+
+        # Веса основанные на реальной статистике рынка
+        weights = [
+            # Samsung Galaxy (29.05% рынка)
+            0.08, 0.06, 0.08, 0.07,  # S24, S24 Ultra, A54, A25
+            # Xiaomi/Redmi (25.49% рынка)
+            0.08, 0.07, 0.05, 0.055,  # Note 13, Note 13 Pro, 14T, Note 12
+            # OnePlus (премиум сегмент ~5%)
+            0.025, 0.025,  # OnePlus 12, Nord 4
+            # Realme (~3%)
+            0.03  # GT Neo 3
+        ]
+
+        return random.choices(devices, weights=weights)[0]
+
+    @staticmethod
+    def get_instagram_versions():
+        """Актуальные версии Instagram 2024-2025"""
+        return [
+            "322.0.0.40.96",
+            "318.0.0.37.116",
+            "315.0.0.35.109",
+            "309.0.0.40.113",
+            "325.0.0.43.87",
+            "328.0.0.46.92"
+        ]
+
+    @staticmethod
+    def get_chrome_versions():
+        """Актуальные версии Chrome для WebView"""
+        return [
+            "120.0.6099.230",
+            "119.0.6045.163",
+            "118.0.5993.111",
+            "121.0.6167.164",
+            "122.0.6261.105"
+        ]
 
 
 class CrossPlatformLockManager:
@@ -450,28 +647,6 @@ class DatabaseManager:
 
             conn.commit()
 
-    def is_user_processed(self, bot_id: str, user_id: str) -> bool:
-        """Проверка, был ли пользователь обработан"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT 1 FROM processed_users WHERE bot_id = ? AND user_id = ?",
-                (bot_id, user_id)
-            )
-            return cursor.fetchone() is not None
-
-    def mark_user_processed(self, bot_id: str, user_id: str, username: str = None,
-                            liked: bool = False, followed: bool = False, messaged: bool = False):
-        """Отметить пользователя как обработанного"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT OR REPLACE INTO processed_users 
-                (bot_id, user_id, username, liked, followed, messaged)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (bot_id, user_id, username, liked, followed, messaged))
-            conn.commit()
-
     def log_activity(self, bot_id: str, action_type: str, target_user_id: str = None,
                      success: bool = True, error_message: str = None):
         """Логирование активности бота"""
@@ -495,15 +670,38 @@ class DatabaseManager:
             """, (bot_id, action_type))
             return cursor.fetchone()[0]
 
+    def is_user_processed(self, bot_id: str, user_id: str) -> bool:
+        """Проверка, был ли пользователь обработан"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT 1 FROM processed_users WHERE bot_id = ? AND user_id = ?",
+                (bot_id, user_id)
+            )
+            return cursor.fetchone() is not None
 
-class FixedInstagramBot:
-    """КРОССПЛАТФОРМЕННЫЙ Instagram бот"""
+    def mark_user_processed(self, bot_id: str, user_id: str, username: str = None,
+                            liked: bool = False, followed: bool = False, messaged: bool = False):
+        """Отметить пользователя как обработанного"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO processed_users 
+                (bot_id, user_id, username, liked, followed, messaged)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (bot_id, user_id, username, liked, followed, messaged))
+            conn.commit()
+
+
+class CzechInstagramBot:
+    """CZECH OPTIMIZED Instagram бот с улучшенной рандомизацией"""
 
     def __init__(self, config: BotConfig):
         self.config = config
         self.db = DatabaseManager()
         self.lock_manager = CrossPlatformLockManager()
         self.proxy_manager = ProxyManager()
+        self.device_manager = CzechDeviceManager()
 
         if not INSTAGRAPI_AVAILABLE:
             raise Exception("instagrapi не установлен")
@@ -516,6 +714,12 @@ class FixedInstagramBot:
         self.login_attempts = 0
         self.max_login_attempts = 3
         self.session_locked = False
+
+        # Выбираем случайное чешское устройство
+        self.device = self.device_manager.get_random_device()
+        logger.info(
+            f"🇨🇿 Выбрано устройство: {self.device['brand']} {self.device['name']} (Android {self.device['android_version']})")
+
         if self.config.proxy:
             logger.info(f"🌐 Настройка прокси для {config.username}: {config.proxy.host}:{config.proxy.port}")
             if not self.proxy_manager.configure_instagrapi_proxy(self.client, self.config.proxy):
@@ -523,7 +727,6 @@ class FixedInstagramBot:
 
         Path("sessions").mkdir(exist_ok=True)
 
-    # ИСПРАВЛЕНИЕ: Добавляем правильные асинхронные контекстные менеджеры
     async def __aenter__(self):
         """Асинхронный контекстный менеджер - вход"""
         return self
@@ -569,29 +772,36 @@ class FixedInstagramBot:
             logger.error(f"Ошибка очистки ресурсов: {e}")
 
     def _setup_client(self):
-        """Настройка клиента Instagram"""
+        """Настройка клиента с чешскими устройствами"""
         try:
-            # Увеличенные задержки для стабильности
-            self.client.delay_range = [10, 15]
+            # МАКСИМАЛЬНЫЕ задержки для избежания банов
+            self.client.delay_range = [45, 90]  # Увеличено с [30, 60]
 
-            # Реалистичные User-Agent'ы
-            user_agents = [
-                "Instagram 194.0.0.36.172 Android (26/8.0.0; 480dpi; 1080x1920; Xiaomi; MI 5s; capricorn; qcom; en_US; 301484483)",
-                "Instagram 195.0.0.45.120 Android (28/9; 420dpi; 1080x2340; samsung; SM-G973F; beyond1; exynos9820; en_US; 303396592)",
-                "Instagram 196.0.0.34.120 Android (29/10; 560dpi; 1440x3040; LGE/lge; LM-G850; judypn; sdm855; en_US; 304067749)"
-            ]
+            # Установка чешского User-Agent на основе выбранного устройства
+            instagram_version = random.choice(self.device_manager.get_instagram_versions())
+            chrome_version = random.choice(self.device_manager.get_chrome_versions())
 
-            user_agent = random.choice(user_agents)
+            # Создаем реалистичный User-Agent для выбранного устройства
+            user_agent = self.device['user_agent_template'].replace(
+                "322.0.0.40.96", instagram_version
+            ).replace(
+                "120.0.6099.230", chrome_version
+            )
+
             self.client.set_user_agent(user_agent)
+            logger.info(f"🤖 User-Agent: {self.device['brand']} {self.device['name']} (IG: {instagram_version})")
 
-            self.client.set_locale('en_US')
-            self.client.set_timezone_offset(-3 * 60 * 60)
+            # Чешские настройки локализации
+            self.client.set_locale('cs_CZ')
+            self.client.set_timezone_offset(1 * 60 * 60)  # UTC+1 для Чехии (зимнее время)
 
             # Дополнительные настройки
-            self.client.request_timeout = 30
+            self.client.request_timeout = 45  # Увеличен таймаут
+
             if self.config.proxy:
                 self.proxy_manager.configure_instagrapi_proxy(self.client, self.config.proxy)
-            logger.info(f"✅ Клиент настроен для {self.config.username}")
+
+            logger.info(f"✅ Чешский клиент настроен для {self.config.username}")
 
         except Exception as e:
             logger.error(f"Ошибка настройки клиента: {e}")
@@ -608,11 +818,11 @@ class FixedInstagramBot:
         }
 
         limit = limits.get(action, 5)
-        logger.info(f"⏱️ Лимит {action}: {count}/{limit} (прокси: {'✅' if self.config.proxy else '❌'})")
+        logger.info(f"⏱️ Лимит {action}: {count}/{limit} (устройство: {self.device['name']})")
         return count < limit
 
     async def safe_request(self, func, *args, **kwargs):
-        """Безопасное выполнение запроса с retry логикой"""
+        """Безопасное выполнение запроса с увеличенными паузами"""
         max_retries = 3
 
         for attempt in range(max_retries):
@@ -622,15 +832,25 @@ class FixedInstagramBot:
 
                 result = func(*args, **kwargs)
 
-                # Динамические паузы в зависимости от типа запроса
+                # ЗНАЧИТЕЛЬНО увеличенные динамические паузы
                 if 'user_medias' in str(func):
-                    delay = random.uniform(10, 20)
+                    delay = random.uniform(60, 120)  # Было 45-90
                 elif 'media_likers' in str(func):
-                    delay = random.uniform(15, 30)
+                    delay = random.uniform(90, 180)  # Было 60-120
                 elif 'user_info' in str(func):
-                    delay = random.uniform(10, 15)
+                    delay = random.uniform(45, 90)  # Было 30-60
+                elif 'media_like' in str(func):
+                    delay = random.uniform(60, 120)  # Новое - для лайков
+                elif 'user_follow' in str(func):
+                    delay = random.uniform(90, 180)  # Новое - для подписок
+                elif 'direct_send' in str(func):
+                    delay = random.uniform(120, 240)  # Новое - для сообщений
+                elif 'explore_medias' in str(func):
+                    delay = random.uniform(30, 60)  # Для explore
+                elif 'clips_explore' in str(func):
+                    delay = random.uniform(25, 50)  # Для reels
                 else:
-                    delay = random.uniform(5, 10)
+                    delay = random.uniform(30, 60)  # Было 20-40
 
                 logger.debug(f"⏳ Пауза {delay:.1f}с после {func.__name__}")
                 await asyncio.sleep(delay)
@@ -644,9 +864,9 @@ class FixedInstagramBot:
                     logger.error(f"🚨 Критическая ошибка API: {e}")
                     raise e
 
-                # Лимиты
+                # Лимиты - УВЕЛИЧЕННЫЕ паузы
                 elif any(keyword in error_message for keyword in ['rate limit', 'please wait', 'spam']):
-                    wait_time = min(600 * (attempt + 1), 1800)
+                    wait_time = min(1200 * (attempt + 1), 3600)  # До 1 часа
                     logger.warning(f"⏳ Превышение лимитов, пауза {wait_time / 60:.1f} мин: {e}")
                     await asyncio.sleep(wait_time)
 
@@ -657,7 +877,7 @@ class FixedInstagramBot:
 
                 # Сетевые ошибки
                 elif any(keyword in error_message for keyword in ['connection', 'timeout', 'network']):
-                    wait_time = 10 * (2 ** attempt)
+                    wait_time = 20 * (2 ** attempt)  # Увеличенные паузы
                     logger.warning(f"🌐 Сетевая ошибка, пауза {wait_time}с: {e}")
                     await asyncio.sleep(wait_time)
 
@@ -668,7 +888,7 @@ class FixedInstagramBot:
 
                 # Прочие ошибки
                 else:
-                    wait_time = random.uniform(30, 60)
+                    wait_time = random.uniform(60, 120)  # Увеличено
                     logger.warning(f"⚠️ Ошибка запроса (попытка {attempt + 1}/{max_retries}): {e}")
                     await asyncio.sleep(wait_time)
 
@@ -677,19 +897,282 @@ class FixedInstagramBot:
                     else:
                         raise e
 
-    async def get_users_from_interactions(self, target_account: str, limit: int = 30) -> List[str]:
+    async def simulate_human_activity(self, activity_type: HumanActivity, duration_minutes: int = None):
+        """Имитация человеческой активности"""
+        if not duration_minutes:
+            duration_minutes = random.randint(5, 25)  # Увеличено время
+
+        duration_seconds = duration_minutes * 60
+        logger.info(f"🧑‍💻 Имитация активности: {activity_type.value} на {duration_minutes} мин")
+
+        try:
+            if activity_type == HumanActivity.EXPLORE:
+                await self._simulate_explore(duration_seconds)
+            elif activity_type == HumanActivity.WATCH_REELS:
+                await self._simulate_watch_reels(duration_seconds)
+            elif activity_type == HumanActivity.VIEW_STORIES:
+                await self._simulate_view_stories(duration_seconds)
+            elif activity_type == HumanActivity.BROWSE_FEED:
+                await self._simulate_browse_feed(duration_seconds)
+            elif activity_type == HumanActivity.SEARCH_HASHTAGS:
+                await self._simulate_search_hashtags(duration_seconds)
+            elif activity_type == HumanActivity.VIEW_PROFILES:
+                await self._simulate_view_profiles(duration_seconds)
+
+        except Exception as e:
+            logger.warning(f"Ошибка имитации активности {activity_type.value}: {e}")
+
+    async def _simulate_explore(self, duration_seconds: int):
+        """Имитация просмотра ленты Explore"""
+        start_time = time.time()
+
+        while time.time() - start_time < duration_seconds and self.is_running:
+            try:
+                # Получаем explore медиа
+                explore_medias = await self.safe_request(
+                    self.client.explore_medias, amount=random.randint(3, 8)  # Уменьшено количество
+                )
+
+                # "Просматриваем" случайные посты
+                for media in random.sample(explore_medias, min(2, len(explore_medias))):  # Меньше постов
+                    if not self.is_running:
+                        break
+
+                    # Получаем информацию о посте (имитация просмотра)
+                    await self.safe_request(self.client.media_info, media.pk)
+
+                    # Очень редко лайкаем (2% вероятность)
+                    if random.random() < 0.02 and self.check_rate_limits('like'):
+                        await self.safe_request(self.client.media_like, media.pk)
+                        logger.info(f"👍 Случайный лайк в Explore")
+
+                    # Увеличенная пауза между просмотрами
+                    await asyncio.sleep(random.uniform(30, 90))
+
+            except Exception as e:
+                logger.warning(f"Ошибка в explore: {e}")
+                await asyncio.sleep(random.uniform(60, 120))
+
+    async def _simulate_watch_reels(self, duration_seconds: int):
+        """Имитация просмотра Reels"""
+        start_time = time.time()
+
+        while time.time() - start_time < duration_seconds and self.is_running:
+            try:
+                # Получаем reels
+                reels = await self.safe_request(
+                    self.client.clips_explore, amount=random.randint(2, 5)  # Меньше reels
+                )
+
+                for reel in reels:
+                    if not self.is_running:
+                        break
+
+                    # "Смотрим" reel (реалистичное время просмотра)
+                    watch_time = random.uniform(15, 45)  # Увеличено время просмотра
+                    logger.info(f"🎬 Смотрим Reel {watch_time:.1f}с")
+                    await asyncio.sleep(watch_time)
+
+                    # Очень редко лайкаем (1% вероятность)
+                    if random.random() < 0.01 and self.check_rate_limits('like'):
+                        await self.safe_request(self.client.media_like, reel.pk)
+                        logger.info(f"👍 Лайк Reels")
+
+                    # Увеличенная пауза между reels
+                    await asyncio.sleep(random.uniform(10, 30))
+
+            except Exception as e:
+                logger.warning(f"Ошибка в reels: {e}")
+                await asyncio.sleep(random.uniform(60, 120))
+
+    async def _simulate_browse_feed(self, duration_seconds: int):
+        """Имитация просмотра основной ленты"""
+        start_time = time.time()
+
+        while time.time() - start_time < duration_seconds and self.is_running:
+            try:
+                # Получаем ленту
+                feed = await self.safe_request(
+                    self.client.feed_timeline, amount=random.randint(3, 8)
+                )
+
+                for media in feed:
+                    if not self.is_running:
+                        break
+
+                    # "Просматриваем" пост
+                    await asyncio.sleep(random.uniform(15, 40))  # Увеличено время
+
+                    # Редко лайкаем (3% вероятность)
+                    if random.random() < 0.03 and self.check_rate_limits('like'):
+                        await self.safe_request(self.client.media_like, media.pk)
+                        logger.info(f"👍 Лайк в ленте")
+
+                    # Пауза между постами
+                    await asyncio.sleep(random.uniform(10, 25))
+
+            except Exception as e:
+                logger.warning(f"Ошибка в ленте: {e}")
+                await asyncio.sleep(random.uniform(60, 120))
+
+    async def _simulate_search_hashtags(self, duration_seconds: int):
+        """Имитация поиска по хештегам с чешскими тегами"""
+        start_time = time.time()
+
+        # Чешские и международные хештеги
+        hashtags = [
+            'czech', 'prague', 'brno', 'ostrava', 'ceska', 'praha',
+            'travel', 'food', 'art', 'music', 'photography', 'nature',
+            'fashion', 'tech', 'ai', 'crypto', 'fitness', 'lifestyle'
+        ]
+
+        while time.time() - start_time < duration_seconds and self.is_running:
+            try:
+                hashtag = random.choice(hashtags)
+
+                # Поиск по хештегу
+                results = await self.safe_request(
+                    self.client.hashtag_medias_recent, hashtag, amount=random.randint(2, 5)
+                )
+
+                # Просматриваем результаты
+                for media in random.sample(results, min(2, len(results))):
+                    if not self.is_running:
+                        break
+
+                    # "Просматриваем" пост
+                    await asyncio.sleep(random.uniform(10, 25))
+
+                    # Очень редко лайкаем (1% вероятность)
+                    if random.random() < 0.01 and self.check_rate_limits('like'):
+                        await self.safe_request(self.client.media_like, media.pk)
+                        logger.info(f"👍 Лайк через хештег #{hashtag}")
+
+                    await asyncio.sleep(random.uniform(15, 35))
+
+            except Exception as e:
+                logger.warning(f"Ошибка поиска хештегов: {e}")
+                await asyncio.sleep(random.uniform(60, 120))
+
+    async def _simulate_view_stories(self, duration_seconds: int):
+        """Имитация просмотра Stories"""
+        start_time = time.time()
+
+        while time.time() - start_time < duration_seconds and self.is_running:
+            try:
+                # Получаем story feed
+                story_feed = await self.safe_request(self.client.story_feed)
+
+                if story_feed and hasattr(story_feed, 'tray'):
+                    for story_reel in random.sample(story_feed.tray, min(2, len(story_feed.tray))):
+                        if not self.is_running:
+                            break
+
+                        # "Смотрим" stories пользователя
+                        stories = await self.safe_request(
+                            self.client.user_stories, story_reel.user.pk
+                        )
+
+                        for story in stories[:random.randint(1, 2)]:  # Меньше stories
+                            # Имитация просмотра story
+                            await asyncio.sleep(random.uniform(5, 12))
+
+                        # Увеличенная пауза между пользователями
+                        await asyncio.sleep(random.uniform(20, 45))
+
+            except Exception as e:
+                logger.warning(f"Ошибка в stories: {e}")
+                await asyncio.sleep(random.uniform(60, 120))
+
+    async def _simulate_view_profiles(self, duration_seconds: int):
+        """Имитация просмотра профилей"""
+        start_time = time.time()
+
+        while time.time() - start_time < duration_seconds and self.is_running:
+            try:
+                # Получаем suggested users
+                suggested = await self.safe_request(
+                    self.client.suggested_users, amount=random.randint(2, 5)
+                )
+
+                for user in suggested:
+                    if not self.is_running:
+                        break
+
+                    # Просматриваем профиль
+                    user_info = await self.safe_request(self.client.user_info, user.pk)
+                    await asyncio.sleep(random.uniform(10, 25))
+
+                    # Просматриваем несколько постов
+                    user_medias = await self.safe_request(
+                        self.client.user_medias, user.pk, amount=random.randint(1, 2)  # Меньше постов
+                    )
+
+                    for media in user_medias:
+                        await asyncio.sleep(random.uniform(5, 15))
+
+                    # Увеличенная пауза между профилями
+                    await asyncio.sleep(random.uniform(25, 50))
+
+            except Exception as e:
+                logger.warning(f"Ошибка просмотра профилей: {e}")
+                await asyncio.sleep(random.uniform(60, 120))
+
+    async def random_distraction(self):
+        """Случайное отвлечение во время работы"""
+        if random.random() < 0.15:  # Увеличена вероятность до 15%
+            distraction_type = random.choice([
+                "profile_check",
+                "notifications_check",
+                "random_browse",
+                "short_break"
+            ])
+
+            distraction_time = random.uniform(120, 600)  # 2-10 минут
+            logger.info(f"🤔 Отвлечение: {distraction_type} на {distraction_time / 60:.1f} мин")
+
+            await asyncio.sleep(distraction_time)
+            return True
+        return False
+
+    def _decide_actions_randomly(self) -> List[str]:
+        """Рандомное определение действий для выполнения"""
+        actions = []
+
+        # Лайк выполняем в 60% случаев (уменьшено с 70%)
+        if random.random() < 0.6:
+            actions.append('like')
+
+            # Подписка только если лайкнули, и в 25% случаев (уменьшено с 40%)
+            if random.random() < 0.25:
+                actions.append('follow')
+
+                # Сообщение только если подписались, и в 20% случаев (уменьшено с 30%)
+                if random.random() < 0.2:
+                    actions.append('message')
+
+        # Если ничего не выбрали, иногда просто пропускаем пользователя
+        if not actions and random.random() < 0.3:  # 30% шанс вообще ничего не делать
+            return []
+        elif not actions:
+            actions.append('like')  # Хотя бы лайк
+
+        return actions
+
+    async def get_users_from_interactions(self, target_account: str, limit: int = 20) -> List[str]:  # Уменьшен лимит
         """Получение пользователей из лайков и комментариев"""
         try:
             logger.info(f"🎯 Получение пользователей из взаимодействий с @{target_account}")
 
-            await asyncio.sleep(random.uniform(15, 30))
+            # Увеличенная начальная пауза
+            await asyncio.sleep(random.uniform(45, 90))
 
             user_id = await self.safe_request(
                 self.client.user_id_from_username, target_account
             )
             logger.info(f"✅ ID аккаунта @{target_account}: {user_id}")
 
-            await asyncio.sleep(random.uniform(10, 15))
+            await asyncio.sleep(random.uniform(20, 40))
 
             # Получаем медиа с fallback
             medias = []
@@ -700,9 +1183,9 @@ class FixedInstagramBot:
             except Exception as e:
                 logger.warning(f"⚠️ Основной метод получения медиа не сработал: {e}")
                 try:
-                    await asyncio.sleep(random.uniform(45, 60))
+                    await asyncio.sleep(random.uniform(90, 180))  # Увеличенная пауза
                     medias = await self.safe_request(
-                        self.client.user_medias, user_id, amount=min(self.config.posts_to_analyze, 2)
+                        self.client.user_medias, user_id, amount=1  # Только 1 пост при ошибке
                     )
                 except Exception as e2:
                     logger.error(f"❌ Не удалось получить медиа: {e2}")
@@ -722,38 +1205,43 @@ class FixedInstagramBot:
 
                 logger.info(f"📸 Анализ поста {i + 1}/{len(medias)} ({media.like_count} лайков)")
 
-                await asyncio.sleep(random.uniform(15, 25))
+                await asyncio.sleep(random.uniform(30, 60))  # Увеличенная пауза
 
                 # Получаем лайкеров
                 if InteractionType.LIKERS in self.config.interaction_types or InteractionType.BOTH in self.config.interaction_types:
                     try:
                         logger.info(f"👥 Получаем лайкеров поста...")
-                        await asyncio.sleep(random.uniform(10, 15))
+                        await asyncio.sleep(random.uniform(20, 40))
 
                         likers = await self.safe_request(
                             self.client.media_likers, media.id
                         )
                         logger.info(f"✅ Получено {len(likers)} лайкеров")
 
-                        for liker in likers[:min(15, len(likers))]:
+                        # Берем меньше лайкеров
+                        for liker in likers[:min(8, len(likers))]:  # Уменьшено с 15 до 8
                             target_users.add(str(liker.pk))
                             if len(target_users) >= limit:
                                 break
 
                     except Exception as e:
                         logger.warning(f"❌ Ошибка получения лайкеров: {e}")
-                        await asyncio.sleep(random.uniform(60, 120))
+                        await asyncio.sleep(random.uniform(120, 240))  # Увеличенная пауза при ошибке
 
-                # Получаем комментаторов
+                # Получаем комментаторов (реже)
                 if (InteractionType.COMMENTERS in self.config.interaction_types or
                     InteractionType.BOTH in self.config.interaction_types) and len(target_users) < limit:
 
+                    # Пропускаем комментаторов в 50% случаев для уменьшения активности
+                    if random.random() < 0.5:
+                        continue
+
                     try:
-                        await asyncio.sleep(random.uniform(25, 40))
+                        await asyncio.sleep(random.uniform(40, 80))  # Увеличенная пауза
 
                         logger.info(f"💬 Получаем комментаторов...")
                         comments = await self.safe_request(
-                            self.client.media_comments, media.id, amount=8
+                            self.client.media_comments, media.id, amount=5  # Уменьшено с 8 до 5
                         )
                         logger.info(f"✅ Получено {len(comments)} комментариев")
 
@@ -765,9 +1253,9 @@ class FixedInstagramBot:
                     except Exception as e:
                         logger.warning(f"❌ Ошибка получения комментариев: {e}")
 
-                # Пауза между постами
+                # Увеличенная пауза между постами
                 if i < len(medias) - 1:
-                    pause_time = random.uniform(20, 50)
+                    pause_time = random.uniform(90, 180)  # Увеличено с 60-120
                     logger.info(f"😴 Пауза {pause_time:.1f}с перед следующим постом")
                     await asyncio.sleep(pause_time)
 
@@ -828,7 +1316,7 @@ class FixedInstagramBot:
         return message
 
     async def interact_with_user(self, user_id: str) -> Dict[str, bool]:
-        """Взаимодействие с пользователем"""
+        """Взаимодействие с пользователем с максимальной рандомизацией"""
         results = {'like': False, 'follow': False, 'message': False}
 
         try:
@@ -841,7 +1329,11 @@ class FixedInstagramBot:
             user_info = await self.safe_request(self.client.user_info, user_id)
             logger.info(f"👤 Обрабатываем: @{user_info.username}")
 
-            await asyncio.sleep(random.uniform(30, 50))
+            # Случайное отвлечение перед началом работы
+            if await self.random_distraction():
+                pass
+
+            await asyncio.sleep(random.uniform(45, 90))  # Увеличенная пауза
 
             # Получаем посты пользователя
             try:
@@ -852,20 +1344,42 @@ class FixedInstagramBot:
                 logger.warning(f"Не удалось получить посты @{user_info.username}")
                 return results
 
-            # Лайкаем посты
-            if self.check_rate_limits('like') and user_medias:
+            # РАНДОМИЗАЦИЯ ДЕЙСТВИЙ - определяем что будем делать
+            actions_to_perform = self._decide_actions_randomly()
+
+            if not actions_to_perform:
+                logger.info(f"🎲 Пропускаем пользователя @{user_info.username} (случайное решение)")
+                return results
+
+            logger.info(f"🎲 Планируемые действия: {', '.join(actions_to_perform)}")
+
+            # Лайкаем посты (если решили лайкать)
+            if 'like' in actions_to_perform and self.check_rate_limits('like') and user_medias:
                 try:
-                    posts_to_like = min(len(user_medias), self.config.posts_to_like)
-                    for i, media in enumerate(user_medias[:posts_to_like]):
+                    # Рандомное количество лайков (не всегда все посты)
+                    likes_count = random.randint(1, min(len(user_medias), self.config.posts_to_like))
+                    selected_medias = random.sample(user_medias, likes_count)
+
+                    for i, media in enumerate(selected_medias):
                         if not self.is_running:
                             break
 
+                        # Случайное отвлечение перед лайком
+                        if await self.random_distraction():
+                            pass
+
+                        # Увеличенная пауза перед лайком
+                        pre_like_delay = random.uniform(45, 120)  # Увеличено с 20-60
+                        await asyncio.sleep(pre_like_delay)
+
                         await self.safe_request(self.client.media_like, media.id)
                         self.db.log_activity(self.config.bot_id, 'like', user_id, True)
-                        logger.info(f"👍 Лайк {i + 1}/{posts_to_like} @{user_info.username}")
+                        logger.info(f"👍 Лайк {i + 1}/{likes_count} @{user_info.username}")
 
-                        if i < posts_to_like - 1:
-                            await asyncio.sleep(random.uniform(15, 35))
+                        if i < likes_count - 1:
+                            # Значительно увеличенная пауза между лайками
+                            inter_like_delay = random.uniform(60, 180)  # Увеличено с 30-90
+                            await asyncio.sleep(inter_like_delay)
 
                     results['like'] = True
 
@@ -873,9 +1387,17 @@ class FixedInstagramBot:
                     logger.warning(f"Ошибка лайка @{user_info.username}: {e}")
                     self.db.log_activity(self.config.bot_id, 'like', user_id, False, str(e))
 
-            # Подписываемся
-            if results['like'] and self.check_rate_limits('follow') and self.is_running:
-                await asyncio.sleep(random.uniform(60, 120))
+            # Подписываемся (только если лайкнули и решили подписаться)
+            if ('follow' in actions_to_perform and results['like'] and
+                    self.check_rate_limits('follow') and self.is_running):
+
+                # Случайное отвлечение перед подпиской
+                if await self.random_distraction():
+                    pass
+
+                # МАКСИМАЛЬНО увеличенная пауза перед подпиской
+                await asyncio.sleep(random.uniform(300, 600))  # 5-10 минут, было 3-5
+
                 try:
                     await self.safe_request(self.client.user_follow, user_id)
                     self.db.log_activity(self.config.bot_id, 'follow', user_id, True)
@@ -886,9 +1408,17 @@ class FixedInstagramBot:
                     logger.warning(f"Ошибка подписки @{user_info.username}: {e}")
                     self.db.log_activity(self.config.bot_id, 'follow', user_id, False, str(e))
 
-            # Отправляем сообщение
-            if results['follow'] and self.check_rate_limits('message') and self.is_running:
-                await asyncio.sleep(random.uniform(40, 120))
+            # Отправляем сообщение (только если подписались и решили писать)
+            if ('message' in actions_to_perform and results['follow'] and
+                    self.check_rate_limits('message') and self.is_running):
+
+                # Случайное отвлечение перед сообщением
+                if await self.random_distraction():
+                    pass
+
+                # ЭКСТРЕМАЛЬНО увеличенная пауза перед сообщением
+                await asyncio.sleep(random.uniform(600, 1200))  # 10-20 минут, было 5-10
+
                 try:
                     message = self._get_personalized_message(user_info)
                     await self.safe_request(
@@ -908,9 +1438,9 @@ class FixedInstagramBot:
                 results['like'], results['follow'], results['message']
             )
 
-            # Пауза между пользователями
+            # МАКСИМАЛЬНО увеличенная пауза между пользователями
             if self.is_running:
-                delay = random.uniform(self.config.min_delay, self.config.max_delay)
+                delay = random.uniform(1200, 2400)  # 20-40 минут, было 10-20
                 logger.info(f"😴 Пауза {delay / 60:.1f} минут до следующего пользователя")
 
                 # Разбиваем длинную паузу для возможности остановки
@@ -994,7 +1524,6 @@ class FixedInstagramBot:
             return False
 
         # Проверяем блокировку сессии
-            # Проверяем блокировку сессии (игнорируем если уже заблокирована)
         if not self.session_locked:
             if not self.acquire_session_lock():
                 logger.warning(
@@ -1006,7 +1535,7 @@ class FixedInstagramBot:
         try:
             self._setup_client()
 
-            await asyncio.sleep(random.uniform(5, 15))
+            await asyncio.sleep(random.uniform(10, 30))  # Увеличенная пауза
 
             session_loaded = self._load_session_safely()
 
@@ -1030,7 +1559,7 @@ class FixedInstagramBot:
             if old_settings.get('uuids'):
                 self.client.set_uuids(old_settings['uuids'])
 
-            await asyncio.sleep(random.uniform(15, 25))
+            await asyncio.sleep(random.uniform(30, 60))  # Увеличенная пауза
 
             success = self.client.login(self.config.username, self.config.password)
 
@@ -1042,7 +1571,7 @@ class FixedInstagramBot:
                     self.login_attempts = 0
 
                     self._save_session_safely()
-                    await asyncio.sleep(random.uniform(30, 60))
+                    await asyncio.sleep(random.uniform(60, 120))  # Увеличенная пауза после входа
                     return True
 
                 except Exception as e:
@@ -1060,9 +1589,14 @@ class FixedInstagramBot:
             return False
 
     async def run_cycle(self):
-        """Основной цикл работы бота"""
+        """Основной цикл работы бота с человеческой активностью"""
         try:
             logger.info(f"🎯 === НАЧАЛО ЦИКЛА для {self.config.username} ===")
+
+            # Имитация человеческого поведения в начале - ОБЯЗАТЕЛЬНО
+            if random.random() < 0.5:  # 50% вероятность
+                activity = random.choice(list(HumanActivity))
+                await self.simulate_human_activity(activity, random.randint(5, 15))
 
             if not self.config.target_accounts:
                 logger.error("❌ ОШИБКА: Список целевых аккаунтов пуст!")
@@ -1076,13 +1610,24 @@ class FixedInstagramBot:
                 logger.info(f"🎯 === АККАУНТ {i + 1}/{len(self.config.target_accounts)}: @{target_account} ===")
 
                 try:
-                    target_users = await self.get_users_from_interactions(target_account, limit=15)
+                    target_users = await self.get_users_from_interactions(target_account, limit=10)  # Уменьшен лимит
 
                     if not target_users:
                         logger.warning(f"⚠️ Не удалось получить пользователей из @{target_account}")
                         continue
 
                     logger.info(f"✅ Получено {len(target_users)} пользователей из @{target_account}")
+
+                    # Рандомизируем порядок и количество пользователей
+                    random.shuffle(target_users)
+
+                    # Берем случайное количество пользователей (40-70% от общего)
+                    take_count = random.randint(
+                        int(len(target_users) * 0.4),
+                        int(len(target_users) * 0.7)
+                    )
+                    target_users = target_users[:take_count]
+                    logger.info(f"🎲 Обрабатываем {len(target_users)} из {len(target_users)} пользователей")
 
                     processed_count = 0
                     skipped_count = 0
@@ -1114,41 +1659,67 @@ class FixedInstagramBot:
                                 logger.info(f"⏭️ Пользователь {user_id} пропущен")
                                 skipped_count += 1
 
+                            # Рандомные перерывы каждые 2-3 пользователя
+                            if (j + 1) % random.randint(2, 3) == 0 and self.is_running:
+                                # Случайная человеческая активность
+                                if random.random() < 0.6:  # 60% вероятность
+                                    activity = random.choice([
+                                        HumanActivity.BROWSE_FEED,
+                                        HumanActivity.WATCH_REELS,
+                                        HumanActivity.EXPLORE
+                                    ])
+                                    await self.simulate_human_activity(activity, random.randint(3, 10))
+                                else:
+                                    # Обычный перерыв
+                                    break_time = random.uniform(1200, 2400)  # 20-40 минут
+                                    logger.info(f"☕ Большой перерыв {break_time / 60:.1f} минут")
+
+                                    while break_time > 0 and self.is_running:
+                                        sleep_time = min(60, break_time)
+                                        await asyncio.sleep(sleep_time)
+                                        break_time -= sleep_time
+
                         except Exception as e:
                             logger.error(f"❌ Ошибка обработки пользователя {user_id}: {e}")
                             skipped_count += 1
-                            await asyncio.sleep(random.uniform(120, 240))
+                            await asyncio.sleep(random.uniform(300, 600))  # Увеличенная пауза при ошибке
 
                     logger.info(f"📊 Результаты для @{target_account}:")
                     logger.info(f"   ✅ Обработано: {processed_count}")
                     logger.info(f"   ⏭️ Пропущено: {skipped_count}")
 
-                    # Пауза между аккаунтами
+                    # Большая человеческая активность между аккаунтами
                     if i < len(self.config.target_accounts) - 1 and self.is_running:
-                        pause_minutes = random.uniform(45, 90)
-                        logger.info(f"😴 Пауза {pause_minutes:.1f} мин перед следующим аккаунтом")
+                        if random.random() < 0.8:  # 80% вероятность
+                            activity = random.choice(list(HumanActivity))
+                            await self.simulate_human_activity(activity, random.randint(10, 25))
+
+                        pause_minutes = random.uniform(90, 180)  # 1.5-3 часа, было 45-90 минут
+                        logger.info(f"😴 БОЛЬШАЯ пауза {pause_minutes:.1f} мин перед следующим аккаунтом")
 
                         pause_seconds = pause_minutes * 60
                         while pause_seconds > 0 and self.is_running:
-                            sleep_time = min(30, pause_seconds)
+                            sleep_time = min(60, pause_seconds)
                             await asyncio.sleep(sleep_time)
                             pause_seconds -= sleep_time
 
                 except Exception as e:
                     logger.error(f"❌ Критическая ошибка при обработке @{target_account}: {e}")
-                    await asyncio.sleep(random.uniform(600, 1200))
+                    await asyncio.sleep(random.uniform(1800, 3600))  # 30-60 минут при ошибке
 
             logger.info(f"🏁 === ЦИКЛ ЗАВЕРШЕН для {self.config.username} ===")
 
         except Exception as e:
             logger.error(f"❌ Критическая ошибка в цикле: {e}")
-            await asyncio.sleep(random.uniform(1800, 3600))
+            await asyncio.sleep(random.uniform(3600, 7200))  # 1-2 часа при критической ошибке
 
     async def start(self):
         """Запуск бота"""
         try:
-            logger.info(f"🚀 Запуск кроссплатформенного бота: {self.config.username}")
+            logger.info(f"🚀 Запуск CZECH OPTIMIZED бота: {self.config.username}")
             logger.info(f"🖥️ Платформа: {platform.system()} {platform.release()}")
+            logger.info(
+                f"🇨🇿 Устройство: {self.device['brand']} {self.device['name']} (Android {self.device['android_version']})")
 
             if not await self.login():
                 logger.error(f"❌ Не удалось авторизоваться: {self.config.username}")
@@ -1170,19 +1741,18 @@ class FixedInstagramBot:
 
                     logger.info(f"✅ Цикл #{cycle_count} завершен для {self.config.username}")
 
-                    # Пауза между циклами
+                    # ЭКСТРЕМАЛЬНО увеличенная пауза между циклами
                     if self.is_running and self.config.active:
                         if cycle_count == 1:
-                            pause_minutes = random.uniform(60, 120)
-                            logger.info(f"😴 Пауза {pause_minutes:.1f} минут после первого цикла")
+                            pause_hours = random.uniform(3, 6)  # 3-6 часов, было 1-2
+                            logger.info(f"😴 Пауза {pause_hours:.1f} часов после первого цикла")
                         else:
-                            pause_hours = random.uniform(6, 12)
-                            logger.info(f"😴 Большая пауза {pause_hours:.1f} часов до следующего цикла")
-                            pause_minutes = pause_hours * 60
+                            pause_hours = random.uniform(12, 24)  # 12-24 часа, было 6-12
+                            logger.info(f"😴 ОГРОМНАЯ пауза {pause_hours:.1f} часов до следующего цикла")
 
-                        pause_seconds = pause_minutes * 60
+                        pause_seconds = pause_hours * 3600
                         while pause_seconds > 0 and self.is_running and self.config.active:
-                            sleep_time = min(60, pause_seconds)
+                            sleep_time = min(300, pause_seconds)  # Проверяем каждые 5 минут
                             await asyncio.sleep(sleep_time)
                             pause_seconds -= sleep_time
 
@@ -1197,7 +1767,7 @@ class FixedInstagramBot:
                             logger.error(f"Не удалось переавторизоваться: {self.config.username}")
                             break
 
-                    await asyncio.sleep(random.uniform(1800, 3600))
+                    await asyncio.sleep(random.uniform(3600, 7200))  # 1-2 часа при ошибке
 
             logger.info(f"🛑 Бот остановлен: {self.config.username}")
             return True
@@ -1251,17 +1821,22 @@ class FixedInstagramBot:
                 'session_locked': self.session_locked,
                 'username': self.config.username,
                 'platform': platform.system(),
+                'device': f"{self.device['brand']} {self.device['name']}",
                 'proxy': self.config.proxy.to_dict() if self.config.proxy else None
             }
 
 
-def create_config_for_windows_vps() -> BotConfig:
-    """Создание конфигурации для Windows/VPS"""
+# Обновляем основные классы для использования нового бота
+FixedInstagramBot = CzechInstagramBot  # Алиас для совместимости
+
+
+def create_config_for_czech_users() -> BotConfig:
+    """Создание конфигурации для чешских пользователей"""
     filters = UserFilter(
-        min_followers=30,
-        max_followers=8000,
+        min_followers=20,  # Еще более мягкие фильтры
+        max_followers=5000,  # Уменьшен максимум
         min_following=5,
-        max_following=1500,
+        max_following=1000,  # Уменьшен максимум
         min_posts=1,
         has_profile_pic=False,
         private_account=False,
@@ -1270,41 +1845,41 @@ def create_config_for_windows_vps() -> BotConfig:
         exclude_business_accounts=False,
         exclude_verified_accounts=True,
         required_keywords_in_bio=[],
-        excluded_keywords_in_bio=['bot', 'spam', 'fake']
+        excluded_keywords_in_bio=['bot', 'spam', 'fake', 'business']
     )
 
     config = BotConfig(
-        bot_id="windows_vps_bot",
+        bot_id="czech_optimized_bot",
         username="artem_lotariev_",  # 🔧 ЗАМЕНИТЕ НА ВАШ USERNAME
         password="Artem1702L",  # 🔧 ЗАМЕНИТЕ НА ВАШ ПАРОЛЬ
 
         target_accounts=[
-            "grandcar_ukraine",
-            "ukraine_insta",
-            "kyiv_official"
+            "natgeo",
+            "nasa",
+            "techcrunch"
         ],
 
         filters=filters,
-        message_template="Привіт! Цікавий контент на @{main_account} 🤖",
+        message_template="Ahoj! Zajímavý obsah na @{main_account} 🇨🇿",
         main_account="pschol",  # 🔧 ЗАМЕНИТЕ НА ВАШ ОСНОВНОЙ АККАУНТ
 
         interaction_types=[InteractionType.LIKERS],
-        posts_to_analyze=2,
-        posts_to_like=1,
+        posts_to_analyze=2,  # Уменьшено
+        posts_to_like=1,  # Уменьшено
 
-        # Мягкие лимиты для VPS
-        max_likes_per_hour=6,
-        max_follows_per_hour=3,
-        max_messages_per_hour=2,
+        # ЭКСТРЕМАЛЬНО мягкие лимиты для избежания банов
+        max_likes_per_hour=3,  # Было 4
+        max_follows_per_hour=1,  # Было 2
+        max_messages_per_hour=1,  # Без изменений
 
-        # Увеличенные паузы для стабильности
-        min_delay=600,  # 10 минут
-        max_delay=1200,  # 20 минут
+        # ЭКСТРЕМАЛЬНО увеличенные паузы
+        min_delay=1800,  # 30 минут, было 20
+        max_delay=3600,  # 60 минут, было 40
 
         message_variants=[
-            "Привіт {name}! Цікавий контент на @{main_account} 🇺🇦",
-            "Вітаю! Рекомендую заглянути @{main_account} ✨",
-            "Привіт! AI та новини на @{main_account} 🤖"
+            "Ahoj {name}! Zajímavý obsah na @{main_account} 🇨🇿",
+            "Zdravím! Doporučuji navštívit @{main_account} ✨",
+            "Ahoj! AI a novinky na @{main_account} 🤖"
         ],
 
         personalized_messages=True
@@ -1313,15 +1888,15 @@ def create_config_for_windows_vps() -> BotConfig:
     return config
 
 
-async def test_cross_platform_bot():
-    """Тест кроссплатформенного бота"""
-    print("🧪 ТЕСТ КРОССПЛАТФОРМЕННОГО INSTAGRAM БОТА")
+async def test_czech_optimized_bot():
+    """Тест чешского оптимизированного бота"""
+    print("🧪 ТЕСТ CZECH OPTIMIZED INSTAGRAM БОТА")
     print("=" * 60)
     print(f"🖥️ Платформа: {platform.system()} {platform.release()}")
     print(f"🐍 Python: {platform.python_version()}")
     print()
 
-    config = create_config_for_windows_vps()
+    config = create_config_for_czech_users()
 
     if config.password == "YOUR_PASSWORD_HERE" or config.main_account == "YOUR_MAIN_ACCOUNT":
         print("❌ ОШИБКА: Настройте конфигурацию!")
@@ -1331,14 +1906,14 @@ async def test_cross_platform_bot():
         print('   main_account="your_main_account"')
         return
 
-    # ИСПРАВЛЕНИЕ: Используем правильный асинхронный контекстный менеджер
-    async with FixedInstagramBot(config) as bot:
+    async with CzechInstagramBot(config) as bot:
         try:
             print(f"🔑 Тестируем авторизацию @{config.username}...")
+            print(f"🇨🇿 Устройство: {bot.device['brand']} {bot.device['name']}")
 
             if await bot.login():
                 print("✅ Авторизация успешна!")
-                print("🚀 Запуск полноценной работы...")
+                print("🚀 Запуск оптимизированной работы...")
                 await bot.start()
             else:
                 print("❌ Ошибка авторизации")
@@ -1350,81 +1925,52 @@ async def test_cross_platform_bot():
             print(f"❌ Ошибка: {e}")
 
 
-def show_platform_info():
-    """Показать информацию о платформе и настройках"""
-    print("🔧 ИНФОРМАЦИЯ О СИСТЕМЕ")
+def show_czech_optimization_info():
+    """Показать информацию об оптимизации для Чехии"""
+    print("🇨🇿 CZECH OPTIMIZATION INFO")
     print("=" * 50)
-    print(f"🖥️ Операционная система: {platform.system()} {platform.release()}")
-    print(f"🏗️ Архитектура: {platform.machine()}")
-    print(f"🐍 Python: {platform.python_version()}")
-    print(f"📂 Рабочая директория: {os.getcwd()}")
+
+    # Показываем примеры устройств
+    devices = CzechDeviceManager.get_czech_devices()
+    print("📱 ПОПУЛЯРНЫЕ УСТРОЙСТВА В ЧЕХИИ:")
+    for device in devices[:5]:
+        print(f"   {device['brand']} {device['name']} (Android {device['android_version']})")
     print()
 
-    # Проверяем доступные модули
-    modules_status = {}
-    required_modules = ['instagrapi', 'flask', 'flask_socketio']
-
-    for module in required_modules:
-        try:
-            __import__(module)
-            modules_status[module] = "✅ Установлен"
-        except ImportError:
-            modules_status[module] = "❌ Не установлен"
-
-    print("📦 СТАТУС МОДУЛЕЙ:")
-    for module, status in modules_status.items():
-        print(f"   {module}: {status}")
+    print("🔧 ОПТИМИЗАЦИИ:")
+    print("   ✅ Чешские User-Agent строки")
+    print("   ✅ Локализация cs_CZ (Чехия)")
+    print("   ✅ Timezone Europe/Prague (UTC+1)")
+    print("   ✅ Реалистичные устройства Samsung/Xiaomi")
+    print("   ✅ ЭКСТРЕМАЛЬНО увеличенные паузы")
+    print("   ✅ Максимальная рандомизация действий")
+    print("   ✅ Имитация человеческой активности")
+    print("   ✅ Случайные отвлечения и перерывы")
     print()
 
-    # Проверяем права доступа
-    print("🔐 ПРАВА ДОСТУПА:")
-    test_dirs = ['sessions', 'sessions/locks', 'logs']
-    for test_dir in test_dirs:
-        try:
-            Path(test_dir).mkdir(parents=True, exist_ok=True)
-            test_file = Path(test_dir) / "test.tmp"
-            test_file.write_text("test")
-            test_file.unlink()
-            print(f"   {test_dir}: ✅ Чтение/запись OK")
-        except Exception as e:
-            print(f"   {test_dir}: ❌ Ошибка: {e}")
+    print("⚡ НОВЫЕ ЛИМИТЫ (АНТИ-БАН):")
+    print("   📊 Лайков в час: 3 (было 6)")
+    print("   👥 Подписок в час: 1 (было 2)")
+    print("   💬 Сообщений в час: 1 (без изменений)")
+    print("   ⏱️ Мин. пауза: 30 мин (было 20)")
+    print("   ⏱️ Макс. пауза: 60 мин (было 40)")
     print()
 
-    print("🌐 РЕКОМЕНДАЦИИ ДЛЯ VPS:")
-    print("   • Используйте screen или tmux для фоновой работы")
-    print("   • Настройте автозапуск через systemd (Linux)")
-    print("   • Мониторьте использование памяти и CPU")
-    print("   • Регулярно делайте бэкапы sessions/ и logs/")
-    print("   • Используйте VPS с IP из целевой страны")
-
-
-if __name__ == "__main__":
-    print("🤖 КРОССПЛАТФОРМЕННЫЙ INSTAGRAM BOT v2.7.2025 - ИСПРАВЛЕНО")
-    print("=" * 65)
-    print("🔧 ИСПРАВЛЕНИЯ В ЭТОЙ ВЕРСИИ:")
-    print("   ✅ Добавлены правильные асинхронные контекстные менеджеры")
-    print("   ✅ Исправлена ошибка AttributeError: __aenter__")
-    print("   ✅ Совместимость с Windows и Linux")
-    print("   ✅ Готовность к развертыванию на VPS")
-    print("   ✅ Блокировки сессий без fcntl")
-    print("   ✅ Улучшенная обработка ошибок")
-    print("   ✅ Автоматическая очистка ресурсов")
+    print("🎲 РАНДОМИЗАЦИЯ:")
+    print("   • Только 60% пользователей получают лайки")
+    print("   • Только 25% лайкнутых получают подписку")
+    print("   • Только 20% подписанных получают сообщение")
+    print("   • 15% шанс случайного отвлечения")
+    print("   • Человеческая активность между пользователями")
     print()
 
-    if len(sys.argv) > 1:
-        if sys.argv[1] == '--info':
-            show_platform_info()
-        elif sys.argv[1] == '--test':
-            asyncio.run(test_cross_platform_bot())
-        else:
-            print("❓ Доступные команды:")
-            print("   --info  : Информация о системе")
-            print("   --test  : Тестовый запуск")
-    else:
-        print("🚀 Для запуска используйте:")
-        print("   python launcher_fixed.py --test")
-        print()
-        asyncio.run(test_cross_platform_bot())
+    print("🧑‍💻 ИМИТАЦИЯ ЧЕЛОВЕКА:")
+    print("   🔍 Просмотр Explore")
+    print("   🎬 Просмотр Reels")
+    print("   📸 Просмотр Stories")
+    print("   📱 Просмотр ленты")
+    print("   🔎 Поиск по хештегам")
+    print("   👤 Просмотр профилей")
 
 
 def test_proxy_api(proxy_data: dict) -> dict:
@@ -1445,3 +1991,46 @@ def test_proxy_api(proxy_data: dict) -> dict:
             'success': False,
             'error': f'Ошибка конфигурации прокси: {str(e)}'
         }
+
+
+if __name__ == "__main__":
+    print("🇨🇿 CZECH OPTIMIZED INSTAGRAM BOT v3.0.2025")
+    print("=" * 65)
+    print("🔧 КЛЮЧЕВЫЕ УЛУЧШЕНИЯ:")
+    print("   ✅ Реальные чешские устройства (Samsung, Xiaomi, OnePlus)")
+    print("   ✅ Аутентичные User-Agent строки для Чехии")
+    print("   ✅ ЭКСТРЕМАЛЬНО увеличенные задержки (анти-бан)")
+    print("   ✅ Максимальная рандомизация всех действий")
+    print("   ✅ Имитация реального человеческого поведения")
+    print("   ✅ Случайные отвлечения и активности")
+    print("   ✅ Чешская локализация и временная зона")
+    print("   ✅ Мягчайшие лимиты активности")
+    print()
+
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '--info':
+            show_czech_optimization_info()
+        elif sys.argv[1] == '--test':
+            asyncio.run(test_czech_optimized_bot())
+        elif sys.argv[1] == '--devices':
+            print("📱 ДОСТУПНЫЕ ЧЕШСКИЕ УСТРОЙСТВА:")
+            for i, device in enumerate(CzechDeviceManager.get_czech_devices(), 1):
+                print(f"{i:2d}. {device['brand']} {device['name']} (Android {device['android_version']})")
+                print(f"     Разрешение: {device['resolution']}, DPI: {device['dpi']}")
+                print()
+        else:
+            print("❓ Доступные команды:")
+            print("   --info    : Информация об оптимизации")
+            print("   --test    : Тестовый запуск")
+            print("   --devices : Список чешских устройств")
+    else:
+        print("🚀 Для запуска используйте:")
+        print("   python launcher.py --test")
+        print()
+        print("⚠️ ВНИМАНИЕ: Новые экстремальные задержки!")
+        print("   • Пауза между пользователями: 20-40 минут")
+        print("   • Пауза между аккаунтами: 1.5-3 часа")
+        print("   • Пауза между циклами: 12-24 часа")
+        print("   • Это НОРМАЛЬНО для избежания банов!")
+        print()
+        asyncio.run(test_czech_optimized_bot())

@@ -24,7 +24,7 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 from werkzeug.serving import make_server
 import queue
-
+from collections import deque
 # Импортируем классы из исправленного launcher
 from launcher import (
     FixedInstagramBot, BotConfig, UserFilter, Gender,
@@ -47,6 +47,36 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'instagram_bot_secret_key_2025'
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+web_logs = deque(maxlen=200)  # Храним последние 200 логов
+
+
+class WebSocketLogHandler(logging.Handler):
+    """Handler для отправки логов в веб-интерфейс"""
+
+    def emit(self, record):
+        try:
+            log_entry = {
+                'timestamp': datetime.now().strftime('%H:%M:%S'),
+                'level': record.levelname,
+                'message': record.getMessage(),
+                'logger': record.name
+            }
+
+            # Добавляем в глобальную очередь
+            web_logs.append(log_entry)
+
+            # Отправляем через WebSocket
+            socketio.emit('new_log', log_entry)
+
+        except Exception:
+            pass
+
+
+# Добавляем handler к корневому логгеру
+web_handler = WebSocketLogHandler()
+web_handler.setLevel(logging.INFO)
+logging.getLogger().addHandler(web_handler)
 
 
 class CrossPlatformBotManager:
@@ -739,7 +769,13 @@ def get_system_status():
         logger.error(f"Ошибка получения статуса системы: {e}")
         return jsonify({'error': str(e)}), 500
 
-
+@app.route('/api/logs')
+def get_logs():
+    """Получение последних логов"""
+    try:
+        return jsonify(list(web_logs))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 # WebSocket события
 @socketio.on('connect')
 def handle_connect():

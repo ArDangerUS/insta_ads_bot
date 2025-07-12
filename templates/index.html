@@ -569,19 +569,28 @@
     </div>
 
     <!-- Логи -->
-    <div class="logs-container">
-        <div class="logs-header">
-            <h3>📋 Системные логи</h3>
+  <!-- Логи -->
+<div class="logs-container">
+    <div class="logs-header">
+        <h3>📋 Логи ботов в реальном времени</h3>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <select onchange="filterLogs(this.value)" style="padding: 5px 10px; border-radius: 5px;">
+                <option value="all">Все логи</option>
+                <option value="info">INFO</option>
+                <option value="warning">WARNING</option>
+                <option value="error">ERROR</option>
+            </select>
             <button class="btn" onclick="clearLogs()">🗑️ Очистить</button>
         </div>
-        <div class="logs-content" id="logsContent">
-            <div class="log-entry">
-                <span class="log-timestamp">[2025-01-07 10:00:00]</span>
-                <span class="log-level-info">[INFO]</span>
-                Система запущена успешно
-            </div>
+    </div>
+    <div class="logs-content" id="logsContent">
+        <div class="log-entry">
+            <span class="log-timestamp">[Loading...]</span>
+            <span class="log-level-info">[INFO]</span>
+            <span class="log-message">Загрузка логов...</span>
         </div>
     </div>
+</div>
 </div>
 
 <!-- Модальное окно добавления бота -->
@@ -810,6 +819,7 @@
         initSocketConnection();
         loadInitialData();
         setInterval(refreshData, 30000); // Обновление каждые 30 секунд
+        loadInitialLogs();
     });
 
     // WebSocket подключение
@@ -1359,7 +1369,89 @@
             }
         });
     }
+// Глобальные переменные для логов
+let logs = [];
+let maxLogs = 200;
 
+// Функция загрузки логов при старте
+async function loadInitialLogs() {
+    try {
+        const response = await fetch('/api/logs');
+        if (response.ok) {
+            logs = await response.json();
+            renderLogs();
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки логов:', error);
+    }
+}
+
+// Обработка новых логов через WebSocket
+socket.on('new_log', function(logEntry) {
+    addLogToInterface(logEntry.message, logEntry.level, logEntry.timestamp);
+});
+
+// Обновленная функция добавления логов
+function addLogToInterface(message, level = 'info', timestamp = null) {
+    const logsContent = document.getElementById('logsContent');
+    const now = timestamp || new Date().toLocaleTimeString('ru-RU');
+
+    const logEntry = {
+        timestamp: now,
+        level: level,
+        message: message
+    };
+
+    // Добавляем в массив
+    logs.push(logEntry);
+
+    // Ограничиваем количество логов
+    if (logs.length > maxLogs) {
+        logs.shift();
+    }
+    // Создаем элемент лога
+    const logElement = document.createElement('div');
+    logElement.className = 'log-entry';
+
+    const levelClass = `log-level-${level.toLowerCase()}`;
+
+    logElement.innerHTML = `
+        <span class="log-timestamp">[${now}]</span>
+        <span class="${levelClass}">[${level.toUpperCase()}]</span>
+        <span class="log-message">${message}</span>
+    `;
+
+    logsContent.appendChild(logElement);
+    logsContent.scrollTop = logsContent.scrollHeight;
+
+    // Ограничиваем количество DOM элементов
+    if (logsContent.children.length > maxLogs) {
+        logsContent.removeChild(logsContent.firstChild);
+    }
+}
+
+// Функция рендеринга всех логов
+function renderLogs() {
+    const logsContent = document.getElementById('logsContent');
+    logsContent.innerHTML = '';
+
+    logs.forEach(log => {
+        const logElement = document.createElement('div');
+        logElement.className = 'log-entry';
+
+        const levelClass = `log-level-${log.level.toLowerCase()}`;
+
+        logElement.innerHTML = `
+            <span class="log-timestamp">[${log.timestamp}]</span>
+            <span class="${levelClass}">[${log.level.toUpperCase()}]</span>
+            <span class="log-message">${log.message}</span>
+        `;
+
+        logsContent.appendChild(logElement);
+    });
+
+    logsContent.scrollTop = logsContent.scrollHeight;
+}
     // Логи
     function addLog(message, level = 'info') {
         const logsContent = document.getElementById('logsContent');
@@ -1383,10 +1475,10 @@
     }
 
     function clearLogs() {
-        document.getElementById('logsContent').innerHTML = '';
-        addLog('Логи очищены', 'info');
+    logs = [];
+    document.getElementById('logsContent').innerHTML = '';
+    addLogToInterface('Логи очищены', 'info');
     }
-
     // Закрытие модальных окон по Escape
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
